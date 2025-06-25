@@ -31,9 +31,6 @@ class EcoGear_Plugin {
         // Add admin menu
         add_action('admin_menu', [__CLASS__, 'add_admin_menu']);
         
-        // Add dashboard widget
-        add_action('wp_dashboard_setup', [__CLASS__, 'add_dashboard_widget']);
-        
         // Register custom order statuses on init
         add_action('init', [__CLASS__, 'register_order_statuses']);
         
@@ -45,29 +42,38 @@ class EcoGear_Plugin {
      * Add admin styles for logo in menu
      */
     public static function add_admin_logo_styles() {
-        echo '<style>
-            /* EcoGear Admin Menu Logo Styles */
-            #adminmenu .toplevel_page_ecogear .wp-menu-image {
-                background-size: 20px 20px !important;
-                background-repeat: no-repeat !important;
-                background-position: center center !important;
-                opacity: 0.7;
-                transition: all 0.3s ease;
-            }
-            
-            #adminmenu .toplevel_page_ecogear:hover .wp-menu-image,
-            #adminmenu .toplevel_page_ecogear.wp-has-current-submenu .wp-menu-image,
-            #adminmenu .toplevel_page_ecogear.current .wp-menu-image {
-                opacity: 1;
-                transform: scale(1.05);
-            }
-            
-            /* Hide default dashicon if custom icon is used */
-            #adminmenu .toplevel_page_ecogear .wp-menu-image:before {
-                content: none !important;
-                display: none !important;
-            }
-        </style>';
+        if (EcoGear_Config::logo_exists()) {
+            $logo_url = EcoGear_Config::get_logo_url();
+            echo '<style>
+                /* EcoGear Admin Menu Logo Styles */
+                #adminmenu .toplevel_page_ecogear .wp-menu-image {
+                    background-image: url("' . esc_url($logo_url) . '") !important;
+                    background-size: 25px 25px !important;
+                    background-repeat: no-repeat !important;
+                    background-position: center center !important;
+                    opacity: 0.8;
+                    transition: all 0.3s ease;
+                }
+                
+                #adminmenu .toplevel_page_ecogear:hover .wp-menu-image,
+                #adminmenu .toplevel_page_ecogear.wp-has-current-submenu .wp-menu-image,
+                #adminmenu .toplevel_page_ecogear.current .wp-menu-image {
+                    opacity: 1;
+                    transform: scale(1.1);
+                }
+                
+                /* Hide default dashicon if custom icon is used */
+                #adminmenu .toplevel_page_ecogear .wp-menu-image:before {
+                    content: none !important;
+                    display: none !important;
+                }
+                
+                /* Ensure proper sizing on different admin states */
+                #adminmenu .toplevel_page_ecogear .wp-menu-image img {
+                    display: none !important;
+                }
+            </style>';
+        }
     }
 
     /**
@@ -101,32 +107,25 @@ class EcoGear_Plugin {
                 jQuery(document).ready(function($) {
                     // Enhance the menu icon with the actual logo
                     var menuItem = $("#adminmenu .toplevel_page_ecogear .wp-menu-image");
-                    if (menuItem.length && "' . $logo_url . '") {
+                    if (menuItem.length && "' . esc_js($logo_url) . '") {
+                        // Apply the background image
                         menuItem.css({
-                            "background-image": "url(\'' . $logo_url . '\')",
-                            "background-size": "18px 18px",
+                            "background-image": "url(\'' . esc_js($logo_url) . '\')",
+                            "background-size": "20px 20px",
                             "background-repeat": "no-repeat",
                             "background-position": "center center"
                         });
                         
-                        // Hide any existing content
+                        // Hide any existing dashicon content
                         menuItem.find("*").hide();
                         menuItem.html("");
+                        
+                        // Ensure proper display
+                        menuItem.show();
                     }
                 });
             </script>';
         }
-    }
-
-    /**
-     * Add dashboard widget
-     */
-    public static function add_dashboard_widget() {
-        wp_add_dashboard_widget(
-            EcoGear_Config::WIDGET_ID,
-            EcoGear_Config::WIDGET_TITLE,
-            [__CLASS__, 'render_dashboard_widget']
-        );
     }
 
     /**
@@ -141,13 +140,6 @@ class EcoGear_Plugin {
      */
     public static function render_admin_page() {
         EcoGear_UI::render_api_keys_page();
-    }
-
-    /**
-     * Render dashboard widget
-     */
-    public static function render_dashboard_widget() {
-        EcoGear_UI::render_dashboard_widget();
     }
 }
 

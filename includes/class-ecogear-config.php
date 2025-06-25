@@ -63,7 +63,7 @@ class EcoGear_Config {
             $svg_content = trim($svg_content);
             
             // Create properly formatted data URL
-            $data_url = 'data:image/svg+xml;charset=utf-8,' . rawurlencode($svg_content);
+            $data_url = 'data:image/svg+xml;base64,' . base64_encode($svg_content);
             return $data_url;
         }
         return 'dashicons-store'; // fallback to dashicon
@@ -218,16 +218,16 @@ class EcoGear_Config {
     public static function get_best_menu_icon() {
         // Try different approaches in order of preference
         if (self::logo_exists()) {
-            // First try: Direct SVG file URL
-            $logo_url = self::get_logo_url();
-            if ($logo_url) {
-                return $logo_url;
-            }
-            
-            // Second try: Data URL
+            // First try: Data URL (best for WordPress admin menu)
             $data_url = self::get_logo_data_url();
             if ($data_url && $data_url !== 'dashicons-store') {
                 return $data_url;
+            }
+            
+            // Second try: Direct SVG file URL
+            $logo_url = self::get_logo_url();
+            if ($logo_url) {
+                return $logo_url;
             }
         }
         
