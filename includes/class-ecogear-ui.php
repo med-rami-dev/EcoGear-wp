@@ -38,7 +38,7 @@ class EcoGear_UI {
           // Access Keys Button
         echo '<div class="eco-button-card">';
         echo '<h3>🔑 Access Keys</h3>';
-        echo '<p>Generate your APP ID and APP KEY for secure access</p>';
+        echo '<p>Generate your APP ID and APP KEY</p>';
         if (isset($_POST['generate_api'])) {
             self::handle_api_generation($user_id);        } else {
             echo '<form method="post">';
@@ -46,9 +46,9 @@ class EcoGear_UI {
             echo '<button type="submit" name="generate_api" class="eco-btn eco-btn-primary">Get Started</button>';
             echo '</form>';
               // Add helpful links under Get Started
-            echo '<div class="eco-helpful-links" style="text-align: center;">';
-            echo '<h4>Quick Links</h4>';
-            echo '<ul class="eco-links-list" style="list-style: none; padding: 0; display: inline-block;">';
+            echo '<div class="eco-helpful-links" style="text-align: center; margin-top: 0.5rem;">';
+            echo '<h4 style="margin: 0.5rem 0;">Quick Links</h4>';
+            echo '<ul class="eco-links-list" style="list-style: none; padding: 0; margin: 0; display: inline-block;">';
             echo '<li style="display: inline-block; margin: 0 10px;"><a href="#" class="eco-link" onclick="alert(\'Support\'); return false;">📞 Support</a></li>';
             echo '<li style="display: inline-block; margin: 0 10px;"><a href="#" class="eco-link" onclick="alert(\'Documentation\'); return false;">📚 Documentation</a></li>';
             echo '</ul>';
@@ -70,12 +70,12 @@ class EcoGear_UI {
         
         // Force regenerate keys
         $keys = EcoGear_API::force_regenerate_user_keys($user_id);        if ($keys && !is_wp_error($keys)) {
-            echo '<div class="eco-success">✅ Access Keys Generated Successfully!</div>';
+            echo '<div class="eco-success">Access Keys Generated Successfully</div>';
             echo '<div class="eco-keys">';
               // Combined QR Code Section
             echo '<div class="eco-combined-qr">';
             echo '<h3>📱 Complete Access Information</h3>';
-            echo '<p>Your complete access credentials and domain info in one QR code</p>';
+            echo '<p>Scan The QR Code With EcoGear APP</p>';
             echo '<div class="eco-qr-display" id="combined-qr-container">';
             echo '<div class="eco-qr-loading" style="text-align: center; padding: 2rem; color: #64748b;">';
             echo '� Generating QR code...';
@@ -83,24 +83,28 @@ class EcoGear_UI {
             echo '</div>';
             echo '</div>';
             
-            echo '<div class="eco-key-item">';
-            echo '<label>APP ID:</label>';
+            // APP ID and APP KEY in same line with improved design
+            echo '<div class="eco-keys-row">';
+            
+            // APP ID Section
+            echo '<div class="eco-key-item eco-key-half">';
+            echo '<label class="eco-key-label">🔑 APP ID</label>';
             echo '<div class="eco-key-input-wrapper">';
-            echo '<input type="text" id="app-id" value="' . esc_attr($keys['consumer_key']) . '" readonly onclick="copyToClipboard(this)">';
-            echo '<div class="eco-key-actions">';
-            echo '<button type="button" class="eco-copy-btn" onclick="copyToClipboard(document.getElementById(\'app-id\'))">📋 Copy</button>';
+            echo '<input type="text" id="app-id" value="' . esc_attr($keys['consumer_key']) . '" readonly onclick="copyToClipboard(this)" class="eco-key-input">';
+            echo '<button type="button" class="eco-copy-btn eco-copy-btn-compact" onclick="copyToClipboard(document.getElementById(\'app-id\'))" title="Copy APP ID">📋</button>';
             echo '</div>';
             echo '</div>';
-            echo '</div>';
-            echo '<div class="eco-key-item">';
-            echo '<label>APP KEY:</label>';
+            
+            // APP KEY Section
+            echo '<div class="eco-key-item eco-key-half">';
+            echo '<label class="eco-key-label">🔐 APP KEY</label>';
             echo '<div class="eco-key-input-wrapper">';
-            echo '<input type="text" id="app-key" value="' . esc_attr($keys['consumer_secret']) . '" readonly onclick="copyToClipboard(this)">';
-            echo '<div class="eco-key-actions">';
-            echo '<button type="button" class="eco-copy-btn" onclick="copyToClipboard(document.getElementById(\'app-key\'))">📋 Copy</button>';
+            echo '<input type="text" id="app-key" value="' . esc_attr($keys['consumer_secret']) . '" readonly onclick="copyToClipboard(this)" class="eco-key-input">';
+            echo '<button type="button" class="eco-copy-btn eco-copy-btn-compact" onclick="copyToClipboard(document.getElementById(\'app-key\'))" title="Copy APP KEY">📋</button>';
             echo '</div>';
             echo '</div>';
-            echo '</div>';
+            
+            echo '</div>'; // End eco-keys-row
             echo '</div>';
               // Add domain information
             echo '<div class="eco-domain-info">';

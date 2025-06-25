@@ -53,6 +53,10 @@ class EcoGear_Plugin {
                     background-position: center center !important;
                     opacity: 0.8;
                     transition: all 0.3s ease;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border: none !important;
+                    box-shadow: none !important;
                 }
                 
                 #adminmenu .toplevel_page_ecogear:hover .wp-menu-image,
@@ -71,6 +75,21 @@ class EcoGear_Plugin {
                 /* Ensure proper sizing on different admin states */
                 #adminmenu .toplevel_page_ecogear .wp-menu-image img {
                     display: none !important;
+                }
+                
+                /* Remove spacing and lines around the menu item */
+                #adminmenu .toplevel_page_ecogear {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border-bottom: none !important;
+                    box-shadow: none !important;
+                }
+                
+                #adminmenu .toplevel_page_ecogear a {
+                    margin: 0 !important;
+                    padding: 8px 0 !important;
+                    border-bottom: none !important;
+                    box-shadow: none !important;
                 }
             </style>';
         }

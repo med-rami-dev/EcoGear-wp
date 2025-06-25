@@ -401,13 +401,6 @@ function generateCombinedQR() {
         container.innerHTML = `
             <div style="text-align: center; margin: 2rem 1.5rem;">
                 <img src="${qrApiUrl}" alt="Combined API QR Code" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                <div class="eco-qr-info">
-                    <strong>📱 QR Code Contains:</strong><br>
-                    • Domain: ${domain}<br>
-                    • APP ID: ${appId.substring(0, 20)}...<br>
-                    • APP KEY: ${appKey.substring(0, 20)}...<br>
-                    • Generated: ${new Date().toLocaleString()}
-                </div>
             </div>
         `;
 
