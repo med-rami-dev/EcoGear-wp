@@ -78,6 +78,13 @@ EcoGear/
 - **Admin-only registration** for security
 - **Animated success notifications**
 
+### 🔄 Automatic API Refresh
+- **Real-time order updates** when customer notes are added
+- **Automatic cache clearing** for instant API synchronization
+- **Manual refresh endpoint** for on-demand updates
+- **Refresh statistics tracking** with detailed analytics
+- **Admin meta box** for manual order refresh in WP admin
+
 ### 🎨 Enhanced UI Features
 - **Modern gradient design** with beautiful animations
 - **Responsive layout** that works on all devices

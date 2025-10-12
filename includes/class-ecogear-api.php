@@ -7,6 +7,16 @@
 if (!defined('ABSPATH')) exit;
 
 class EcoGear_API {
+    
+    /**
+     * Cache for user API keys to avoid repeated database queries
+     */
+    private static $keys_cache = [];
+    
+    /**
+     * Cache for requirements validation
+     */
+    private static $requirements_cache = null;
       /**
      * Generate API keys for a user using the proven working method
      * 
@@ -40,23 +50,32 @@ class EcoGear_API {
             'description'     => $data['description']
         ];
     }    /**
-     * Get API keys for a user
+     * Get API keys for a user (with caching)
      * 
      * @param int $user_id User ID
      * @return array|false API keys or false if not found
      */
     public static function get_user_keys($user_id) {
+        // Check cache first
+        if (isset(self::$keys_cache[$user_id])) {
+            return self::$keys_cache[$user_id];
+        }
+        
         $keys = get_user_meta($user_id, EcoGear_Config::API_KEY_META_KEY, true);
 
         if (!$keys || empty($keys)) {
             $keys = self::generate_keys_for_user($user_id);
             if (!is_wp_error($keys)) {
                 update_user_meta($user_id, EcoGear_Config::API_KEY_META_KEY, $keys);
+                // Cache the result
+                self::$keys_cache[$user_id] = $keys;
                 return $keys;
             }
             return false;
         }
 
+        // Cache the result
+        self::$keys_cache[$user_id] = $keys;
         return $keys;
     }
 
@@ -67,6 +86,9 @@ class EcoGear_API {
      * @return bool True if deleted successfully
      */
     public static function delete_user_keys($user_id) {
+        // Clear cache first
+        unset(self::$keys_cache[$user_id]);
+        
         $keys = get_user_meta($user_id, EcoGear_Config::API_KEY_META_KEY, true);
         
         if ($keys && isset($keys['key_id'])) {
@@ -99,6 +121,9 @@ class EcoGear_API {
      * @return array|false New API keys or false on failure
      */
     public static function force_regenerate_user_keys($user_id) {
+        // Clear cache
+        unset(self::$keys_cache[$user_id]);
+        
         // Delete from user meta first
         delete_user_meta($user_id, EcoGear_Config::API_KEY_META_KEY);
         
@@ -126,62 +151,78 @@ class EcoGear_API {
     public static function user_can_manage() {
         return current_user_can('manage_woocommerce');
     }    /**
-     * Validate WooCommerce requirements
+     * Validate WooCommerce requirements (with caching)
      * 
      * @return array Array with 'valid' boolean and 'message' string
      */
     public static function validate_requirements() {
+        // Return cached result if available
+        if (self::$requirements_cache !== null) {
+            return self::$requirements_cache;
+        }
+        
         $requirements = EcoGear_Config::get_requirements();
         
         // Check PHP version
         if (version_compare(PHP_VERSION, $requirements['php_version'], '<')) {
-            return [
+            self::$requirements_cache = [
                 'valid' => false,
                 'message' => 'PHP version ' . $requirements['php_version'] . ' or higher is required.'
             ];
+            return self::$requirements_cache;
         }
         
         // Check WordPress version
         global $wp_version;
         if (version_compare($wp_version, $requirements['wp_version'], '<')) {
-            return [
+            self::$requirements_cache = [
                 'valid' => false,
                 'message' => 'WordPress version ' . $requirements['wp_version'] . ' or higher is required.'
             ];
+            return self::$requirements_cache;
         }
         
         // Check WooCommerce
         if (!class_exists('WooCommerce')) {
-            return [
+            self::$requirements_cache = [
                 'valid' => false,
                 'message' => 'WooCommerce plugin is required but not active.'
             ];
+            return self::$requirements_cache;
         }
         
         // Check WooCommerce functions
         if (!function_exists('wc_rand_hash') || !function_exists('wc_api_hash')) {
-            return [
+            self::$requirements_cache = [
                 'valid' => false,
                 'message' => 'Required WooCommerce functions are not available. Please update WooCommerce.'
             ];
+            return self::$requirements_cache;
         }
         
-        // Check WooCommerce API keys table
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'woocommerce_api_keys';
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+        // Check WooCommerce API keys table (cache this check too)
+        static $table_checked = null;
+        if ($table_checked === null) {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'woocommerce_api_keys';
+            $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+            $table_checked = !empty($table_exists);
+        }
         
-        if (!$table_exists) {
-            return [
+        if (!$table_checked) {
+            self::$requirements_cache = [
                 'valid' => false,
                 'message' => 'WooCommerce API keys table is missing. Please deactivate and reactivate WooCommerce to create the required database tables.'
             ];
+            return self::$requirements_cache;
         }
         
-        return [
+        self::$requirements_cache = [
             'valid' => true,
             'message' => 'All requirements met.'
         ];
+        
+        return self::$requirements_cache;
     }
 
     /**

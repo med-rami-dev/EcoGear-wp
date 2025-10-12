@@ -18,6 +18,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-ecogear-config.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-ecogear-api.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-ecogear-order-status.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-ecogear-ui.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-ecogear-api-hooks.php';
 
 /**
  * Main EcoGear Plugin Class
@@ -25,82 +26,82 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-ecogear-ui.php';
 class EcoGear_Plugin {
     
     /**
+     * Plugin initialization flag to prevent duplicate initialization
+     */
+    private static $initialized = false;
+    
+    /**
      * Initialize the plugin
      */
     public static function init() {
+        // Prevent duplicate initialization
+        if (self::$initialized) {
+            return;
+        }
+        
+        self::$initialized = true;
         // Add admin menu
         add_action('admin_menu', [__CLASS__, 'add_admin_menu']);
         
         // Register custom order statuses on init
         add_action('init', [__CLASS__, 'register_order_statuses']);
         
-        // Add admin styles for logo
-        add_action('admin_head', [__CLASS__, 'add_admin_logo_styles']);
+        // Initialize API hooks for order refresh
+        add_action('init', [__CLASS__, 'init_api_hooks']);
+        
+        // Register scheduled events
+        add_action('ecogear_update_stats', ['EcoGear_API_Hooks', 'scheduled_stats_update']);
+        
+        // Add admin styles for logo (use wp_enqueue_style instead of inline styles)
+        add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_admin_styles']);
+        
+        // Add order refresh meta box to admin
+        add_action('add_meta_boxes', ['EcoGear_API_Hooks', 'add_refresh_meta_box']);
     }
 
     /**
      * Add admin styles for logo in menu
      */
     public static function add_admin_logo_styles() {
-        if (EcoGear_Config::logo_exists()) {
-            $logo_url = EcoGear_Config::get_logo_url();
-            echo '<style>
-                /* EcoGear Admin Menu Logo Styles */
-                #adminmenu .toplevel_page_ecogear .wp-menu-image {
-                    background-image: url("' . esc_url($logo_url) . '") !important;
-                    background-size: 25px 25px !important;
-                    background-repeat: no-repeat !important;
-                    background-position: center center !important;
-                    opacity: 0.8;
-                    transition: all 0.3s ease;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                }
-                
-                #adminmenu .toplevel_page_ecogear:hover .wp-menu-image,
-                #adminmenu .toplevel_page_ecogear.wp-has-current-submenu .wp-menu-image,
-                #adminmenu .toplevel_page_ecogear.current .wp-menu-image {
-                    opacity: 1;
-                    transform: scale(1.1);
-                }
-                
-                /* Hide default dashicon if custom icon is used */
-                #adminmenu .toplevel_page_ecogear .wp-menu-image:before {
-                    content: none !important;
-                    display: none !important;
-                }
-                
-                /* Ensure proper sizing on different admin states */
-                #adminmenu .toplevel_page_ecogear .wp-menu-image img {
-                    display: none !important;
-                }
-                
-                /* Remove spacing and lines around the menu item */
-                #adminmenu .toplevel_page_ecogear {
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    border-bottom: none !important;
-                    box-shadow: none !important;
-                }
-                
-                #adminmenu .toplevel_page_ecogear a {
-                    margin: 0 !important;
-                    padding: 8px 0 !important;
-                    border-bottom: none !important;
-                    box-shadow: none !important;
-                }
-            </style>';
+        // Use cached logo data to avoid repeated file operations
+        static $styles_added = false;
+        if ($styles_added) return;
+        
+        $logo_config = EcoGear_Config::get_cached_logo_config();
+        if ($logo_config['exists']) {
+            wp_add_inline_style('admin-menu', self::get_admin_logo_css($logo_config['url']));
+            $styles_added = true;
         }
+    }
+    
+    /**
+     * Get admin logo CSS
+     */
+    private static function get_admin_logo_css($logo_url) {
+        return "
+            #adminmenu .toplevel_page_ecogear .wp-menu-image {
+                background-image: url('" . esc_url($logo_url) . "') !important;
+                background-size: 25px 25px !important;
+                background-repeat: no-repeat !important;
+                background-position: center center !important;
+                opacity: 0.8;
+                transition: opacity 0.2s ease;
+            }
+            #adminmenu .toplevel_page_ecogear:hover .wp-menu-image {
+                opacity: 1;
+            }
+            #adminmenu .toplevel_page_ecogear .wp-menu-image:before {
+                display: none !important;
+            }
+        ";
     }
 
     /**
      * Add admin menu
      */
     public static function add_admin_menu() {
-        // Use the best available menu icon
-        $menu_icon = EcoGear_Config::get_best_menu_icon();
+        // Use cached menu icon to avoid repeated file operations
+        $menu_icon = EcoGear_Config::get_cached_menu_icon();
         
         add_menu_page(
             EcoGear_Config::MENU_PAGE_TITLE,
@@ -111,47 +112,49 @@ class EcoGear_Plugin {
             $menu_icon,
             EcoGear_Config::MENU_POSITION
         );
-        
-        // Add JavaScript to enhance menu icon display if needed
-        add_action('admin_footer', [__CLASS__, 'add_menu_icon_script']);
     }
     
     /**
-     * Add JavaScript to set menu icon dynamically
+     * Enqueue admin styles
      */
-    public static function add_menu_icon_script() {
-        if (EcoGear_Config::logo_exists()) {
-            $logo_url = EcoGear_Config::get_logo_url();
-            echo '<script>
-                jQuery(document).ready(function($) {
-                    // Enhance the menu icon with the actual logo
-                    var menuItem = $("#adminmenu .toplevel_page_ecogear .wp-menu-image");
-                    if (menuItem.length && "' . esc_js($logo_url) . '") {
-                        // Apply the background image
-                        menuItem.css({
-                            "background-image": "url(\'' . esc_js($logo_url) . '\')",
-                            "background-size": "20px 20px",
-                            "background-repeat": "no-repeat",
-                            "background-position": "center center"
-                        });
-                        
-                        // Hide any existing dashicon content
-                        menuItem.find("*").hide();
-                        menuItem.html("");
-                        
-                        // Ensure proper display
-                        menuItem.show();
-                    }
-                });
-            </script>';
+    public static function enqueue_admin_styles() {
+        // Only load on EcoGear admin pages to improve performance
+        $screen = get_current_screen();
+        if (!$screen || strpos($screen->id, 'ecogear') === false) {
+            return;
+        }
+        
+        // Enqueue main admin styles
+        wp_enqueue_style(
+            'ecogear-admin',
+            plugin_dir_url(__FILE__) . 'assets/css/ecogear-styles.css',
+            [],
+            EcoGear_Config::VERSION
+        );
+        
+        // Add logo styles if needed
+        $logo_config = EcoGear_Config::get_cached_logo_config();
+        if ($logo_config['exists']) {
+            wp_add_inline_style('ecogear-admin', self::get_admin_logo_css($logo_config['url']));
         }
     }
+
+    /**
+     * Remove the JavaScript menu icon script (no longer needed)
+     */
 
     /**
      * Register custom order statuses
      */
     public static function register_order_statuses() {
         EcoGear_Order_Status::register_statuses();
+    }
+
+    /**
+     * Initialize API hooks for order refresh
+     */
+    public static function init_api_hooks() {
+        EcoGear_API_Hooks::init();
     }
 
     /**

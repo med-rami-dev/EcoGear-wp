@@ -22,6 +22,16 @@ class EcoGear_Config {
      * Plugin description
      */
     const PLUGIN_DESCRIPTION = 'Orders Manager For EcoGear APP - Sustainable Orders management for your store';
+    
+    /**
+     * Cached logo configuration to avoid repeated file operations
+     */
+    private static $logo_cache = null;
+    
+    /**
+     * Cached menu icon to avoid repeated calculations
+     */
+    private static $menu_icon_cache = null;
       /**
      * Menu settings
      */
@@ -38,70 +48,91 @@ class EcoGear_Config {
     const LOGO_PATH = 'assets/images/logo.svg';
     
     /**
-     * Get logo URL
+     * Get cached logo configuration to avoid repeated file operations
      */
-    public static function get_logo_url() {
-        $logo_path = plugin_dir_path(dirname(__FILE__)) . self::LOGO_PATH;
-        if (file_exists($logo_path)) {
-            return plugin_dir_url(dirname(__FILE__)) . self::LOGO_PATH;
-        }
-        // Return a default/fallback image or empty string
-        return plugin_dir_url(dirname(__FILE__)) . 'assets/images/fallback-logo.png';
-    }
-    
-    /**
-     * Get logo data URL for admin menu
-     */
-    public static function get_logo_data_url() {
-        $logo_path = plugin_dir_path(dirname(__FILE__)) . self::LOGO_PATH;
-        if (file_exists($logo_path)) {
-            $svg_content = file_get_contents($logo_path);
+    public static function get_cached_logo_config() {
+        if (self::$logo_cache === null) {
+            $logo_path = plugin_dir_path(dirname(__FILE__)) . self::LOGO_PATH;
+            $exists = file_exists($logo_path);
             
-            // Clean and optimize SVG for WordPress admin menu
-            $svg_content = preg_replace('/\s+/', ' ', $svg_content);
-            $svg_content = str_replace('"', "'", $svg_content);
-            $svg_content = trim($svg_content);
-            
-            // Create properly formatted data URL
-            $data_url = 'data:image/svg+xml;base64,' . base64_encode($svg_content);
-            return $data_url;
+            self::$logo_cache = [
+                'exists' => $exists,
+                'path' => $logo_path,
+                'url' => $exists ? plugin_dir_url(dirname(__FILE__)) . self::LOGO_PATH : '',
+                'data_url' => $exists ? self::generate_logo_data_url($logo_path) : ''
+            ];
         }
-        return 'dashicons-store'; // fallback to dashicon
-    }
-    
-    /**
-     * Get simplified logo data URL for admin menu (alternative method)
-     */
-    public static function get_logo_icon() {
-        $logo_path = plugin_dir_path(dirname(__FILE__)) . self::LOGO_PATH;
-        if (file_exists($logo_path)) {
-            // Return the direct URL to the SVG file
-            return plugin_dir_url(dirname(__FILE__)) . self::LOGO_PATH;
-        }
-        return 'dashicons-store';
-    }
-    
-    /**
-     * Debug function to check logo paths
-     */
-    public static function debug_logo_paths() {
-        $logo_path = plugin_dir_path(dirname(__FILE__)) . self::LOGO_PATH;
-        $logo_url = plugin_dir_url(dirname(__FILE__)) . self::LOGO_PATH;
         
-        return [
-            'logo_path' => $logo_path,
-            'logo_url' => $logo_url,
-            'file_exists' => file_exists($logo_path),
-            'file_size' => file_exists($logo_path) ? filesize($logo_path) : 0
-        ];
+        return self::$logo_cache;
     }
     
     /**
-     * Check if logo file exists
+     * Get cached menu icon
+     */
+    public static function get_cached_menu_icon() {
+        if (self::$menu_icon_cache === null) {
+            $logo_config = self::get_cached_logo_config();
+            
+            if ($logo_config['exists'] && $logo_config['data_url']) {
+                self::$menu_icon_cache = $logo_config['data_url'];
+            } else {
+                self::$menu_icon_cache = self::get_menu_svg_icon();
+            }
+        }
+        
+        return self::$menu_icon_cache;
+    }
+    
+    /**
+     * Generate logo data URL (optimized version)
+     */
+    private static function generate_logo_data_url($logo_path) {
+        if (!file_exists($logo_path)) {
+            return '';
+        }
+        
+        // Use WordPress filesystem if available for better performance
+        if (function_exists('WP_Filesystem')) {
+            global $wp_filesystem;
+            if (empty($wp_filesystem)) {
+                require_once ABSPATH . '/wp-admin/includes/file.php';
+                WP_Filesystem();
+            }
+            
+            if ($wp_filesystem) {
+                $svg_content = $wp_filesystem->get_contents($logo_path);
+            } else {
+                $svg_content = file_get_contents($logo_path);
+            }
+        } else {
+            $svg_content = file_get_contents($logo_path);
+        }
+        
+        if (!$svg_content) {
+            return '';
+        }
+        
+        // Optimize SVG content
+        $svg_content = preg_replace('/\s+/', ' ', $svg_content);
+        $svg_content = str_replace('"', "'", $svg_content);
+        $svg_content = trim($svg_content);
+        
+        return 'data:image/svg+xml;base64,' . base64_encode($svg_content);
+    }
+    
+    /**
+     * Check if logo file exists (cached version)
      */
     public static function logo_exists() {
-        $logo_path = plugin_dir_path(dirname(__FILE__)) . self::LOGO_PATH;
-        return file_exists($logo_path);
+        return self::get_cached_logo_config()['exists'];
+    }
+    
+    /**
+     * Get logo URL (cached version)
+     */
+    public static function get_logo_url() {
+        $logo_config = self::get_cached_logo_config();
+        return $logo_config['exists'] ? $logo_config['url'] : '';
     }
     
     /**
@@ -213,25 +244,9 @@ class EcoGear_Config {
     }
     
     /**
-     * Get the best available menu icon
+     * Get the best available menu icon (optimized)
      */
     public static function get_best_menu_icon() {
-        // Try different approaches in order of preference
-        if (self::logo_exists()) {
-            // First try: Data URL (best for WordPress admin menu)
-            $data_url = self::get_logo_data_url();
-            if ($data_url && $data_url !== 'dashicons-store') {
-                return $data_url;
-            }
-            
-            // Second try: Direct SVG file URL
-            $logo_url = self::get_logo_url();
-            if ($logo_url) {
-                return $logo_url;
-            }
-        }
-        
-        // Third try: Custom SVG icon
-        return self::get_menu_svg_icon();
+        return self::get_cached_menu_icon();
     }
 }

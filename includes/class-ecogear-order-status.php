@@ -7,7 +7,7 @@
 if (!defined('ABSPATH')) exit;
 
 class EcoGear_Order_Status {
-    
+
     /**
      * Get all custom order statuses
      * 
@@ -15,12 +15,6 @@ class EcoGear_Order_Status {
      */
     public static function get_custom_statuses() {
         return [
-            'wc-pending' => [
-                'label' => 'Pending', 
-                'color' => '#f6ad55', 
-                'icon' => '⏳',
-                'wp_label' => 'Pending'
-            ],
             'wc-failed-01' => [
                 'label' => 'Failed 01', 
                 'color' => '#f56565', 
@@ -106,15 +100,14 @@ class EcoGear_Order_Status {
                 'wp_label' => 'Out of Stock'
             ]
         ];
-    }    /**
+    }
+
+    /**
      * Register custom order statuses with WordPress
      * 
      * @param bool $run_now Whether to run immediately or hook to filter
      */
     public static function register_statuses($run_now = false) {
-        // First remove default WooCommerce statuses
-        self::remove_default_statuses();
-        
         $statuses = self::get_custom_statuses();
         $wp_statuses = [];
 
@@ -123,6 +116,7 @@ class EcoGear_Order_Status {
             $wp_statuses[$key] = $status['wp_label'];
         }
 
+        // Register each custom status
         foreach ($wp_statuses as $key => $label) {
             register_post_status($key, [
                 'label'                     => $label,
@@ -134,39 +128,12 @@ class EcoGear_Order_Status {
             ]);
         }
 
-        // Hook into WooCommerce status filter to replace defaults with custom ones
+        // Merge custom statuses with WooCommerce defaults
         if (!$run_now) {
             add_filter('wc_order_statuses', function ($order_statuses) use ($wp_statuses) {
-                // Remove default statuses and replace with custom ones
-                return $wp_statuses;
+                return array_merge($order_statuses, $wp_statuses);
             }, 20);
         }
-    }
-
-    /**
-     * Remove default WooCommerce order statuses
-     */
-    public static function remove_default_statuses() {
-        add_filter('wc_order_statuses', function ($order_statuses) {
-            // Clear all default statuses
-            $default_statuses_to_remove = [
-                'wc-pending',
-                'wc-processing', 
-                'wc-on-hold',
-                'wc-completed',
-                'wc-cancelled',
-                'wc-refunded',
-                'wc-failed'
-            ];
-            
-            foreach ($default_statuses_to_remove as $status) {
-                if (isset($order_statuses[$status])) {
-                    unset($order_statuses[$status]);
-                }
-            }
-            
-            return $order_statuses;
-        }, 10);
     }
 
     /**

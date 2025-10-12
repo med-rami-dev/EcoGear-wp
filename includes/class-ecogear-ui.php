@@ -49,8 +49,8 @@ class EcoGear_UI {
             echo '<div class="eco-helpful-links" style="text-align: center; margin-top: 0.5rem;">';
             echo '<h4 style="margin: 0.5rem 0;">Quick Links</h4>';
             echo '<ul class="eco-links-list" style="list-style: none; padding: 0; margin: 0; display: inline-block;">';
-            echo '<li style="display: inline-block; margin: 0 10px;"><a href="#" class="eco-link" onclick="alert(\'Support\'); return false;">📞 Support</a></li>';
-            echo '<li style="display: inline-block; margin: 0 10px;"><a href="#" class="eco-link" onclick="alert(\'Documentation\'); return false;">📚 Documentation</a></li>';
+            echo '<li style="display: inline-block; margin: 0 10px;"><a href="#" class="eco-link" onclick="window.open(\'https://wa.me/213674745214\', \'_blank\'); return false;">📞 Support</a></li>';
+            // echo '<li style="display: inline-block; margin: 0 10px;"><a href="#" class="eco-link" onclick="alert(\'Documentation\'); return false;">📚 Documentation</a></li>';
             echo '</ul>';
             echo '</div>';
         }echo '</div>';
@@ -349,6 +349,9 @@ class EcoGear_UI {
         // Display registered statuses
         self::render_status_display();
 
+        // Display API refresh statistics
+        self::render_api_refresh_stats();
+
         echo '</div>'; // End admin section
     }
 
@@ -383,6 +386,54 @@ class EcoGear_UI {
         
         echo '</div>';
         echo '</div>';
+    }
+
+    /**
+     * Render API refresh statistics section
+     */
+    private static function render_api_refresh_stats() {
+        if (class_exists('EcoGear_API_Hooks')) {
+            $stats = EcoGear_API_Hooks::get_refresh_stats();
+            
+            echo '<div class="eco-api-stats eco-animate-slide-up" style="animation-delay: 0.8s; margin-top: 30px;">';
+            echo '<h3><span class="eco-icon">🔄</span> API Refresh Statistics</h3>';
+            echo '<div class="eco-stats-grid">';
+            
+            echo '<div class="eco-stat-card">';
+            echo '<div class="eco-stat-icon">📊</div>';
+            echo '<div class="eco-stat-number">' . number_format($stats['total_refreshes']) . '</div>';
+            echo '<div class="eco-stat-label">Total Refreshes</div>';
+            echo '</div>';
+            
+            echo '<div class="eco-stat-card">';
+            echo '<div class="eco-stat-icon">📅</div>';
+            echo '<div class="eco-stat-number">' . ($stats['orders_refreshed_today'] ?? 0) . '</div>';
+            echo '<div class="eco-stat-label">Today\'s Refreshes</div>';
+            echo '</div>';
+            
+            echo '<div class="eco-stat-card">';
+            echo '<div class="eco-stat-icon">⏰</div>';
+            echo '<div class="eco-stat-number">' . 
+                 ($stats['last_refresh'] ? 
+                  human_time_diff(strtotime($stats['last_refresh'])) . ' ago' : 
+                  'Never') . 
+                 '</div>';
+            echo '<div class="eco-stat-label">Last Refresh</div>';
+            echo '</div>';
+            
+            echo '</div>';
+            
+            // Add refresh endpoint info
+            echo '<div class="eco-refresh-info" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #4299e1;">';
+            echo '<h4 style="margin: 0 0 10px 0; color: #2d3748;"><span class="eco-icon">🔧</span> API Endpoint</h4>';
+            echo '<p style="margin: 0; color: #718096; font-size: 14px;">Customer note updates now automatically refresh order data in the API. Manual refresh endpoint available at:</p>';
+            echo '<code style="display: block; margin: 10px 0; padding: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; font-family: monospace; font-size: 12px;">';
+            echo 'POST ' . home_url('/wp-json/ecogear/v1/refresh-order/{order_id}');
+            echo '</code>';
+            echo '</div>';
+            
+            echo '</div>';
+        }
     }
 
     /**
@@ -454,22 +505,37 @@ class EcoGear_UI {
         
         echo '</div>';
     }    /**
-     * Enqueue UI assets (CSS and JavaScript)
+     * Enqueue UI assets (CSS and JavaScript) - Optimized version
      */
     private static function enqueue_assets() {
-        // Include CSS
-        $css_file = plugin_dir_path(__FILE__) . '../assets/css/ecogear-styles.css';
+        // Get plugin URL once
+        $plugin_url = plugin_dir_url(__FILE__) . '../assets/';
+        $plugin_path = plugin_dir_path(__FILE__) . '../assets/';
+        
+        // Enqueue CSS with proper versioning and dependency management
+        $css_file = $plugin_path . 'css/ecogear-styles.css';
         if (file_exists($css_file)) {
-            echo '<link rel="stylesheet" href="' . plugin_dir_url(__FILE__) . '../assets/css/ecogear-styles.css">';
+            wp_enqueue_style(
+                'ecogear-styles',
+                $plugin_url . 'css/ecogear-styles.css',
+                [],
+                filemtime($css_file) // Use file modification time for cache busting
+            );
         }
         
-        // Include JavaScript
-        $js_file = plugin_dir_path(__FILE__) . '../assets/js/ecogear-scripts.js';
+        // Enqueue JavaScript with proper dependencies
+        $js_file = $plugin_path . 'js/ecogear-scripts.js';
         if (file_exists($js_file)) {
-            echo '<script src="' . plugin_dir_url(__FILE__) . '../assets/js/ecogear-scripts.js"></script>';
+            wp_enqueue_script(
+                'ecogear-scripts',
+                $plugin_url . 'js/ecogear-scripts.js',
+                ['jquery'], // Proper dependency declaration
+                filemtime($js_file), // Use file modification time for cache busting
+                true // Load in footer for better performance
+            );
         }
         
-        // Fallback: Include inline styles and scripts if files don't exist
+        // Only include fallback if files don't exist
         if (!file_exists($css_file)) {
             self::inline_styles();
         }
@@ -480,17 +546,65 @@ class EcoGear_UI {
     }
     
     /**
-     * Inline CSS styles as fallback
+     * Inline CSS styles as fallback (optimized)
      */
     private static function inline_styles() {
-        echo '<style>' . file_get_contents(plugin_dir_path(__FILE__) . '../assets/css/ecogear-styles.css') . '</style>';
+        $css_file = plugin_dir_path(__FILE__) . '../assets/css/ecogear-styles.css';
+        if (file_exists($css_file)) {
+            // Use WordPress filesystem if available for better performance
+            if (function_exists('WP_Filesystem')) {
+                global $wp_filesystem;
+                if (empty($wp_filesystem)) {
+                    require_once ABSPATH . '/wp-admin/includes/file.php';
+                    WP_Filesystem();
+                }
+                
+                if ($wp_filesystem) {
+                    $css_content = $wp_filesystem->get_contents($css_file);
+                    if ($css_content) {
+                        wp_add_inline_style('admin-styles', $css_content);
+                        return;
+                    }
+                }
+            }
+            
+            // Fallback to file_get_contents
+            $css_content = file_get_contents($css_file);
+            if ($css_content) {
+                wp_add_inline_style('admin-styles', $css_content);
+            }
+        }
     }
     
     /**
-     * Inline JavaScript as fallback
+     * Inline JavaScript as fallback (optimized)
      */
     private static function inline_scripts() {
-        echo '<script>' . file_get_contents(plugin_dir_path(__FILE__) . '../assets/js/ecogear-scripts.js') . '</script>';
+        $js_file = plugin_dir_path(__FILE__) . '../assets/js/ecogear-scripts.js';
+        if (file_exists($js_file)) {
+            // Use WordPress filesystem if available for better performance
+            if (function_exists('WP_Filesystem')) {
+                global $wp_filesystem;
+                if (empty($wp_filesystem)) {
+                    require_once ABSPATH . '/wp-admin/includes/file.php';
+                    WP_Filesystem();
+                }
+                
+                if ($wp_filesystem) {
+                    $js_content = $wp_filesystem->get_contents($js_file);
+                    if ($js_content) {
+                        wp_add_inline_script('jquery', $js_content);
+                        return;
+                    }
+                }
+            }
+            
+            // Fallback to file_get_contents
+            $js_content = file_get_contents($js_file);
+            if ($js_content) {
+                wp_add_inline_script('jquery', $js_content);
+            }
+        }
     }
     
     /**
